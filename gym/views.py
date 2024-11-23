@@ -6,14 +6,26 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils.timezone import now
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
+class LoggedInUserView(APIView):
+    permission_classes = [IsAuthenticated]  # Ensures only authenticated users can access
 
+    def get(self, request):
+        user = request.user
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        }, status=200)
+    
+    
 class MemberDetails(APIView):
     """
     Handles CRUD operations for members.
     """
-
+    permission_classes = [IsAuthenticated]
     def get(self, request, pk=None):
         if pk:
             try:
@@ -57,7 +69,7 @@ class SubscriptionPlanDetails(APIView):
     """
     Handles CRUD operations for subscription plans.
     """
-
+    permission_classes = [IsAuthenticated]
     def get(self, request, pk=None):
         if pk:
             try:
@@ -101,7 +113,7 @@ class MembershipSubscriptionDetails(APIView):
     """
     Handles CRUD operations for memberships.
     """
-
+    permission_classes = [IsAuthenticated]
     def get(self, request, pk=None):
         if pk:
             try:
@@ -137,6 +149,7 @@ class PaymentAPIView(APIView):
     """
     API to handle payments, create or update subscriptions, and manage subscription status.
     """
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         data = request.data
 

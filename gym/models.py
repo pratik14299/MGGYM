@@ -38,12 +38,12 @@ class MembershipSubscription(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')
    
 
-    # def save(self, *args, **kwargs):
-    #     # Automatically mark as expired if the end date is in the past
-    #     if self.end_date < now():
-    #         self.is_active = False
-    #         self.status = 'Expired'
-    #     super().save(*args, **kwargs)
+    def save(self, *args, **kwargs):
+        # Automatically mark as expired if the end date is in the past
+        if self.status =='Expired':
+            self.is_active = False
+            self.status = 'Expired'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.member} - {self.subscription_plan.name}"

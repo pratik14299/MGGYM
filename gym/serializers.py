@@ -1,10 +1,6 @@
 from gym.models import Member,SubscriptionPlan,MembershipSubscription,Payment
 from rest_framework.serializers import ModelSerializer
 
-class MemberSerializer(ModelSerializer):
-    class Meta:
-        model = Member
-        fields = '__all__'
 
 class SubscriptionPlanSerializer(ModelSerializer):
     class Meta:
@@ -18,6 +14,13 @@ class MembershipSubscriptionSerializer(ModelSerializer):
         model = MembershipSubscription
         fields = '__all__'
 
+
+class MemberSerializer(ModelSerializer):
+    subscriptions = MembershipSubscriptionSerializer(many = True,read_only=True)
+
+    class Meta:
+        model = Member
+        fields = ['id', 'name', 'email', 'phone', 'dob', 'joined_date', 'passport_photo', 'subscriptions']
 
 
 class PaymentSerializer(ModelSerializer):
