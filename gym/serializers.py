@@ -35,11 +35,15 @@ class MemberSerializer(ModelSerializer):
     subscriptions = MembershipSubscriptionSerializer(many = True,read_only=True)
     status = SerializerMethodField()
 
-    def get_status(self, obj):
-        return obj.is_active
-
     class Meta:
         model = Member
         fields = ['id', 'name', 'email', 'phone', 'dob', 'joined_date', 'passport_photo','status', 'subscriptions']
+
+    def get_status(self, obj):
+        lates_subscription = obj.subscriptions.order_by('-start_date').first()
+        if lates_subscription:
+            return lates_subscription.status
+        return 'No subscription'
+
 
  
