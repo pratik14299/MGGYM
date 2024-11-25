@@ -11,6 +11,14 @@ class Member(models.Model):
     passport_photo = models.ImageField(upload_to='passport_photos/', blank=True, null=True)
     joined_date = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def is_active(self):
+        """
+        Check if the member has at least one active subscription.
+        """
+        active_subscription = self.subscriptions.filter(is_active=True, end_date__gte=now()).exists()
+        return active_subscription
+    
     def __str__(self):
         return f"{self.name}"
 
@@ -41,8 +49,7 @@ class MembershipSubscription(models.Model):
     def save(self, *args, **kwargs):
         # Automatically mark as expired if the end date is in the past
         if self.status =='Expired':
-            self.is_active = False
-            self.status = 'Expired'
+            self.is_active = False 
         super().save(*args, **kwargs)
 
     def __str__(self):

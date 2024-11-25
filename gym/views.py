@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.http import JsonResponse
 from django.shortcuts import render
 from .models import Member,MembershipSubscription,SubscriptionPlan,Payment
 from .serializers import MemberSerializer,MembershipSubscriptionSerializer,SubscriptionPlanSerializer,PaymentSerializer
@@ -20,7 +21,7 @@ class LoggedInUserView(APIView):
             "email": user.email
         }, status=200)
     
-    
+
 class MemberDetails(APIView):
     """
     Handles CRUD operations for members.
@@ -150,6 +151,11 @@ class PaymentAPIView(APIView):
     API to handle payments, create or update subscriptions, and manage subscription status.
     """
     permission_classes = [IsAuthenticated]
+    def get(self, request):  
+        data = Payment.objects.all()
+        serializer = PaymentSerializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
     def post(self, request):
         data = request.data
 
@@ -207,3 +213,17 @@ class PaymentAPIView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def member_typeahead(request): 
+    query = request.GET.get('q', '') 
+    # Only proceed if there's a query string provided
+    if query:
+        # Perform the search using `icontains` for a case-insensitive search
+        members = Member.objects.filter(name__icontains=query)
+    else:
+        # Return no members if no query is provided
+        members = Member.objects.none()
+
+    # Serialize the results into JSON
+    return JsonResponse(list(members.values('id', 'name')), safe=False)
