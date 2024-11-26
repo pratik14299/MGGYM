@@ -172,7 +172,7 @@ class PaymentAPIView(APIView):
             subscription_plan=subscription_plan,
             defaults={
                 "start_date": now(),
-                "end_date": now() + timedelta(days=subscription_plan.duration_in_days),
+                #"end_date": now() + timedelta(days=subscription_plan.duration_in_days),
                 "is_active": False,
                 "status": "Pending",
             },
@@ -181,7 +181,7 @@ class PaymentAPIView(APIView):
         if not created:
             # If subscription already exists, update the end_date and reset status
             subscription.start_date = now()
-            subscription.end_date = now() + timedelta(days=subscription_plan.duration_in_days)
+            #subscription.end_date = now() + timedelta(days=subscription_plan.duration_in_days)
             subscription.status = "Pending"
             subscription.is_active = False
             subscription.save()
@@ -227,3 +227,27 @@ def member_typeahead(request):
 
     # Serialize the results into JSON
     return JsonResponse(list(members.values('id', 'name')), safe=False)
+
+
+class Notification(APIView):
+    """
+    Provides members who's subscriptions will be end .
+    """
+    # permission_classes = [IsAuthenticated]
+    def get(self, request): 
+
+        notify_date = now() + timedelta(days=5)
+
+        # Fetch all subscriptions
+        data = MembershipSubscription.objects.all()
+
+        # Filter memberships manually
+        about_to_end_memberships = []
+        for i in data:
+            if i.is_active and i.end_date:
+                if now() <= i.end_date <= notify_date:
+                    about_to_end_memberships.append(i)
+
+        # Serialize the filtered data
+        serializer = MembershipSubscriptionSerializer(about_to_end_memberships, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

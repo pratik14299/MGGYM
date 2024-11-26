@@ -7,7 +7,8 @@ from .views import (
     SubscriptionPlanDetails,
     MembershipSubscriptionDetails,
     PaymentAPIView,
-    LoggedInUserView
+    LoggedInUserView,
+    Notification
 )
 
 urlpatterns = [
@@ -20,5 +21,6 @@ urlpatterns = [
     path('payments/', PaymentAPIView.as_view(), name="manage_payments"),
     path('user/', LoggedInUserView.as_view(), name='logged_in_user'),
     path('search/', views.member_typeahead, name='member_typeahead'),
+    path('notification/',Notification.as_view(),name="Notification")
     # path('payments/<int:pk>/', PaymentAPIView.as_view(), name="payment_detail"),
 ]
