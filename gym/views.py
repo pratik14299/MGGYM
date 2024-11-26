@@ -179,6 +179,8 @@ class PaymentAPIView(APIView):
         )
 
         if not created:
+            if subscription.status == "Active":
+                return Response({"error": "can not make a payment for active member"}, status=status.HTTP_403_FORBIDDEN)
             # If subscription already exists, update the end_date and reset status
             subscription.start_date = now()
             #subscription.end_date = now() + timedelta(days=subscription_plan.duration_in_days)
