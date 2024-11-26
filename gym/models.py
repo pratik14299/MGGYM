@@ -59,7 +59,8 @@ class MembershipSubscription(models.Model):
 
 class Payment(models.Model):
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='payment')
-    subscription = models.OneToOneField(MembershipSubscription, on_delete=models.CASCADE)
+    subscription = models.OneToOneField(MembershipSubscription, on_delete=models.CASCADE,blank=True,
+        null=True)
     subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateTimeField(auto_now_add=True)
