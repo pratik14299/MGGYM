@@ -233,7 +233,7 @@ class Notification(APIView):
     """
     Provides members who's subscriptions will be end .
     """
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     def get(self, request): 
 
         notify_date = now() + timedelta(days=5)
