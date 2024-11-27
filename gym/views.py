@@ -189,6 +189,14 @@ class PaymentAPIView(APIView):
             "payment_status": data['payment_status'],
             "subscription": subscription.id  # Link the payment to the created/updated subscription
         }
+        if payment.payment_status == 'Success':
+                subscription.status = "Active"
+                subscription.is_active = True
+        elif payment.payment_status == 'Failed':
+                subscription.status = "Pending"
+                subscription.is_active = False
+
+        subscription.save()
 
         # Now create the payment record
         payment_serializer = PaymentSerializer(data=payment_data)
@@ -203,15 +211,6 @@ class PaymentAPIView(APIView):
             payment = payment_serializer.save()
 
             # Update subscription status based on payment status
-            if payment.payment_status == 'Success':
-                subscription.status = "Active"
-                subscription.is_active = True
-            elif payment.payment_status == 'Failed':
-                subscription.status = "Expired"
-                subscription.is_active = False
-
-            subscription.save()
-
             return Response({
                 "payment": payment_serializer.data,
                 "subscription": MembershipSubscriptionSerializer(subscription).data
