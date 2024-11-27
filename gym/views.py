@@ -165,36 +165,39 @@ class PaymentAPIView(APIView):
             subscription_plan = SubscriptionPlan.objects.get(id=data['subscription_plan'])
         except (Member.DoesNotExist, SubscriptionPlan.DoesNotExist) as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-
         # Create or update the MembershipSubscription linked to the selected subscription plan
-        subscription, created = MembershipSubscription.objects.get_or_create(
-            member=member,
-            subscription_plan=subscription_plan,
-            defaults={
-                "start_date": now(),
-                #"end_date": now() + timedelta(days=subscription_plan.duration_in_days),
-                "is_active": False,
-                "status": "Pending",
-            },
-        )
-
-        if not created:
-            if subscription.status == "Active":
+        subscription = MembershipSubscription.objects.filter(member_id=data['member']).order_by('-start_date').first()
+        print("DATA IS ::::::: ",subscription)
+        if subscription and subscription.status == "Active":
                 return Response({"error": "can not make a payment for active member"}, status=status.HTTP_403_FORBIDDEN)
             # If subscription already exists, update the end_date and reset status
-            subscription.start_date = now()
-            #subscription.end_date = now() + timedelta(days=subscription_plan.duration_in_days)
-            subscription.status = "Pending"
-            subscription.is_active = False
-            subscription.save()
-
-        # Now create the payment record
-        payment_serializer = PaymentSerializer(data={
+        else:
+            # Create a new MembershipSubscription
+            print("membership does not exist creating new")
+            subscription = MembershipSubscription.objects.create(
+                member=member,
+                subscription_plan=subscription_plan,
+                start_date=now(),
+                end_date=now() + timedelta(days=subscription_plan.duration_in_days),
+                is_active=False,
+                status="Pending",
+            )
+        payment_data = {
             "member": member.id,
-            "subscription_plan": subscription_plan.id,  # Here we pass the subscription_plan to link with the payment
+            "subscription_plan": subscription_plan.id,
             "amount_paid": data['amount_paid'],
             "payment_status": data['payment_status'],
-        })
+            "subscription": subscription.id  # Link the payment to the created/updated subscription
+        }
+
+        # Now create the payment record
+        payment_serializer = PaymentSerializer(data=payment_data)
+        # payment_serializer = PaymentSerializer(data={
+        #     "member": member.id,
+        #     "subscription_plan": subscription_plan.id,  # Here we pass the subscription_plan to link with the payment
+        #     "amount_paid": data['amount_paid'],
+        #     "payment_status": data['payment_status'],
+        # })
 
         if payment_serializer.is_valid():
             payment = payment_serializer.save()
@@ -216,10 +219,59 @@ class PaymentAPIView(APIView):
 
         return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def put(self, request, pk=None):
+        data = request.data
+
+        if not pk:
+            return Response({"error": "Subscription ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Fetch the subscription based on the subscription_id
+            subscription = MembershipSubscription.objects.get(id=pk)
+            print("subscription data is **********",subscription)
+        except MembershipSubscription.DoesNotExist:
+            return Response({"error": "Subscription not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            # Fetch the payment record associated with the subscription
+            payment = Payment.objects.get(subscription=subscription)
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment not found for this subscription."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Update payment fields
+        payment.amount_paid = data.get('amount_paid', payment.amount_paid)
+        payment.payment_status = data.get('payment_status', payment.payment_status)
+        payment.payment_date = data.get('payment_date', payment.payment_date)
+
+        # Update related subscription based on payment status
+        subscription = payment.subscription
+        if payment.payment_status == 'Success':
+            subscription.status = 'Active'
+            subscription.is_active = True
+            subscription.start_date = data.get('start_date', subscription.start_date)
+            subscription.end_date = data.get(
+                'end_date',
+                subscription.start_date + timedelta(days=subscription.subscription_plan.duration_in_days),
+            )
+        elif payment.payment_status == 'Failed':
+            subscription.status = 'Expired'
+            subscription.is_active = False
+
+        try:
+            # Save both payment and subscription
+            payment.save()
+            subscription.save()
+        except Exception as e:
+            return Response({"error": f"Failed to update payment: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({
+            "message": "Payment and subscription updated successfully.",
+            "payment": PaymentSerializer(payment).data,
+            "subscription": MembershipSubscriptionSerializer(subscription).data,
+        }, status=status.HTTP_200_OK)
+
 
 def member_typeahead(request): 
-    query = request.GET.get('q', '') 
-    # Only proceed if there's a query string provided
+    query = request.GET.get('q', '')  
     if query:
         # Perform the search using `icontains` for a case-insensitive search
         members = Member.objects.filter(name__icontains=query)
