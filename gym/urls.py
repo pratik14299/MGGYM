@@ -8,7 +8,10 @@ from .views import (
     MembershipSubscriptionDetails,
     PaymentAPIView,
     LoggedInUserView,
-    Notification
+    Notification,
+    analytics_view,
+    AnalyticsAPIView,
+    DownloadExcelView
 )
 
 urlpatterns = [
@@ -22,6 +25,10 @@ urlpatterns = [
     path('payments/<int:pk>/', PaymentAPIView.as_view(), name="update_payments"),
     path('user/', LoggedInUserView.as_view(), name='logged_in_user'),
     path('search/', views.member_typeahead, name='member_typeahead'),
-    path('notification/',Notification.as_view(),name="Notification")
+    path('notification/',Notification.as_view(),name="Notification"),
+    path('analytics/', analytics_view, name='analytics'),
+    path('analytics-full/', AnalyticsAPIView.as_view(), name='analytics'),
+    path('Download/', DownloadExcelView.as_view(), name='download'),
+
     # path('payments/<int:pk>/', PaymentAPIView.as_view(), name="payment_detail"),
 ]
