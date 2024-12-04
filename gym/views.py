@@ -577,85 +577,79 @@ class DownloadExcelView(APIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
-        # Parse dates if provided, otherwise use defaults
+        # Parse dates if provided
         if start_date:
-            start_date = parse_datetime(start_date)
+            start_date = parse_datetime(start_date).date()
         if end_date:
-            end_date = parse_datetime(end_date)
+            end_date = parse_datetime(end_date).date()
+
+        # Default to a large range if dates are not provided
         if not start_date:
-            start_date = now() - timedelta(days=365)  # Default to 1 year ago
+            start_date = now().date() - timedelta(days=365)  # Default to 1 year ago
         if not end_date:
-            end_date = now()  # Default to the current time
+            end_date = now().date()  # Default to the current time
 
-        # Filter data based on the date range and active subscriptions
-        active_subscriptions = MembershipSubscription.objects.filter(
-            start_date__lte=end_date,
-            end_date__gte=start_date,
-            is_active=True  # Only consider active subscriptions
+        # Filter payments based on the date range and successful status
+        payments = Payment.objects.filter(
+            payment_date__range=(start_date, end_date),
+            payment_status='Success'
         )
-
-        # Get the related members for active subscriptions
-        members = Member.objects.filter(subscriptions__in=active_subscriptions).distinct()
 
         # Create an Excel workbook and worksheet
         workbook = Workbook()
         worksheet = workbook.active
-        worksheet.title = "Revenue Report"
+        worksheet.title = "Payment Report"
 
         # Add the date range at the top
-        date_range_row = f"Report for Date Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
-        worksheet.append([date_range_row])
-
-        # Add a blank row after the date range
-        worksheet.append([])
+        worksheet.append([f"Report for Date Range: {start_date.strftime('%d-%b-%Y')} to {end_date.strftime('%d-%b-%Y')}"])
+        worksheet.append([])  # Add a blank row
 
         # Define header row
-        headers = ['Name', 'Phone', 'Start Date', 'End Date', 'Plan', 'Amount']
+        headers = ['Member Name', 'Phone', 'Subscription Start Date', 'Subscription End Date', 'Payment Date', 'Plan', 'Amount Paid']
         worksheet.append(headers)
 
         # Style the header row
         for col_num, header in enumerate(headers, 1):
-            cell = worksheet.cell(row=3, column=col_num)  # Adjust row index for the header
+            cell = worksheet.cell(row=3, column=col_num)
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal="center")
 
         # Add data rows
         total_earning = 0
-        for member in members:
-            active_subscription = member.subscriptions.filter(is_active=True).first()
-            plan = active_subscription.subscription_plan if active_subscription else None
-
-            # Fetch the corresponding payment amount
-            payment = Payment.objects.filter(subscription=active_subscription, payment_status='Success').first()
-            amount_paid = payment.amount_paid if payment else 0
-
+        for payment in payments:
+            member = payment.member
+            subscription = payment.subscription
+            plan_name = subscription.subscription_plan.name if subscription.subscription_plan else 'N/A'
+            start_date_formatted = subscription.start_date.strftime('%d-%b-%Y') if subscription else 'N/A'
+            end_date_formatted = subscription.end_date.strftime('%d-%b-%Y') if subscription else 'N/A'
+            payment_date_formatted = payment.payment_date.strftime('%d-%b-%Y')
             row = [
                 member.name,
                 member.phone,
-                active_subscription.start_date if active_subscription else 'N/A',
-                active_subscription.end_date if active_subscription else 'N/A',
-                plan.name if plan else 'N/A',
-                amount_paid
+                start_date_formatted,
+                end_date_formatted,
+                payment_date_formatted,
+                payment.payment_date.date(),
+                plan_name,
+                payment.amount_paid,
             ]
-            total_earning += amount_paid
+            total_earning += payment.amount_paid
             worksheet.append(row)
 
         # Add total earning row at the end
-        total_row = ['Total', '', '', '', '', total_earning]
+        total_row = ['Total', '', '', '', '', '','', total_earning]
         worksheet.append(total_row)
 
-        # Adjust column widths without merged cells
+        # Adjust column widths
         for col in worksheet.columns:
             max_length = 0
-            col_letter = col[0].column_letter  # Get the column letter
-            
+            col_letter = col[0].column_letter
             for cell in col:
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
                 except Exception:
                     pass
-
             adjusted_width = max_length + 2
             worksheet.column_dimensions[col_letter].width = adjusted_width
 
@@ -669,5 +663,5 @@ class DownloadExcelView(APIView):
             excel_file,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = 'attachment; filename="Revenue_Report.xlsx"'
+        response['Content-Disposition'] = 'attachment; filename="Payment_Report.xlsx"'
         return response
